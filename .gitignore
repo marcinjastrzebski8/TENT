@@ -51,8 +51,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
-profiling_stats/*
-logs/*
+
 
 # Translations
 *.mo
@@ -133,3 +132,12 @@ dmypy.json
 
 #These appear along with .npy files
 *.DS_Store
+
+#for cleanliness I don't track output files
+#NOTE: this means data can get lost - always keep two copies (cluster/local)
+saved_kernels/*
+profiling_stats/* 
+configs/*
+long_jobs.txt
+sliced_detector_analysis/saved_classifiers/*
+predictions/*
