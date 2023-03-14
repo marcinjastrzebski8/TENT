@@ -6,15 +6,21 @@ Classification model can be trained or loaded.
 import joblib
 import numpy as np
 import pandas as pd
-from datetime import datetime #TODO: ADD TIMING
+import time
+import cProfile as profile #should also do mprof for memory usage
+import pstats
 
 from sklearn import preprocessing
-from QKE_SVC import QKE_SVC
 
-from tools import (find_detector_region as find_region, 
+import sys
+from pathlib import Path
+from kernel_methods.QKE_SVC import QKE_SVC
+from sliced_detector_analysis.tools import (find_detector_region as find_region, 
 load_events,
 parse_args,
 load_config)
+
+
 
 def data_transform(data_in_region, method = 'global') -> None:
     """
@@ -112,19 +118,29 @@ def add_physics_to_tracklet(data_in_region, properties_to_add) -> None:
 
 
 if __name__ == '__main__':
+    #NOTE: COMMENTED OUT PROFILING, WANT TO DO IT IN A SEPARATE BRANCH AS IT INCREASES AMOUNT OF OUTPUT PRODUCED
+    #AND PROBABLY SLOWS PERFORMANCE DOWN AS WELL
+    #prof = profile.Profile() #(!)
+    #prof.enable() #(!)
     #load configuration parameters defining the classification run
     config, config_filename = load_config.load_config(parse_args.parse_args().config)
 
-    QKE_model = QKE_SVC(config['classical'], 
+    #profiling_stats_filename = 'classify_tracklets_'+config['kernel_type']+'_'+str(config['num_train'])+'_'+str(config['num_test'])+'.txt' #(!)
+
+    #profiling_stats_path = str(Path().absolute() /'profiling_stats')+'/'+profiling_stats_filename #(!)
+
+    QKE_model = QKE_SVC(config['kernel_type'], 
     config['class_weight'], 
-    gamma = config['gamma'],
+    gamma_class = config['gamma_class'],
+    gamma_quant = config['gamma_quant'],
     C_class = config['C_class'],
     alpha = config['alpha'],
     C_quant = config['C_quant'],
-    single_mapping = config['single_mapping'],
-    pair_mapping = config['pair_mapping'],
-    interaction = config['interaction'],
-    circuit_width = config['circuit_width'])
+    #single_mapping = config['single_mapping'],
+    #pair_mapping = config['pair_mapping'],
+    #interaction = config['interaction'],
+    circuit_width = config['circuit_width'],
+    keep_kernel = config['keep_kernel'])
 
     #decide detector division
     if config['division'] == 'new_phi':
@@ -146,9 +162,10 @@ if __name__ == '__main__':
         region_ids = div.get_region_ids()
         if config['region_id'] not in region_ids:
             raise ValueError('Please specify a valid region_id. Choose from:', region_ids,'. You passed:', config['region_id'])
-
+        
+    sample_flag = config['sample_flag'] #whether to load all data or just a sample (to dev, debug)
     #load train data - needed for quantum-enhanced even if model already trained
-    train_data = load_events.load_events(config['num_train'], config['tracklet_dataset'], 'train')
+    train_data = load_events.load_events(config['num_train'], config['tracklet_dataset'], 'train', sample_flag)
     if div is not None:
         train_data_in_region = train_data[train_data['object_coords'].apply(div.find_region) == config['region_id'] ].reset_index(drop = True)
     else:
@@ -167,6 +184,7 @@ if __name__ == '__main__':
         raise AssertionError('Tracklet object has dimension: ', tracklet_dimension, '.',
         ' Feature dimension expected: ', config['circuit_width'],'.')
 
+
     if config['load_model'] == False:
         #train model
         QKE_model.set_model(load = False, 
@@ -178,8 +196,9 @@ if __name__ == '__main__':
         model = joblib.load(config['model_file'])
         QKE_model.set_model(load = True, model = model)
 
+
     #load test data
-    test_data = load_events.load_events(config['num_test'], config['tracklet_dataset'], 'test')
+    test_data = load_events.load_events(config['num_test'], config['tracklet_dataset'], 'test', sample_flag)
     if div is not None:
             test_data_in_region = test_data[test_data['object_coords'].apply(div.find_region) == config['region_id']].reset_index(drop = True)
     else:
@@ -194,10 +213,11 @@ if __name__ == '__main__':
     test_tracklets_in_region = [np.array(test_data_in_region['object'].values[item]) for item in range(len(test_data_in_region))]
 
     #test
-    if config['classical']:
-        model_predictions = QKE_model.test(test_tracklets_in_region)
-    else:
+    if config['keep_kernel']:
         model_predictions = QKE_model.test(test_tracklets_in_region, train_tracklets_in_region)
+    else:
+        model_predictions = QKE_model.test(test_tracklets_in_region)
+
 
     #update dataframe with prediction column
     test_data_in_region.insert(np.shape(test_data_in_region)[1], 'prediction', model_predictions)
@@ -207,8 +227,12 @@ if __name__ == '__main__':
     tracklet_type = config['tracklet_dataset']
     if isinstance(config['add_to_tracklet'], list):
         tracklet_type = 'with_physics_'+tracklet_type
-    if config['classical']:
-        tracklet_type = 'classical_'+tracklet_type
+    #add kernel info to saved file
+    tracklet_type = config['kernel_type']+'_'+tracklet_type
     results_file = tracklet_type+'_predictions_'+str(config['num_train'])+'_'+str(config['num_test'])+'_events_reg_'+str(config['region_id'])+'_in_'+str(config['division'])
 
     np.save(results_file, results)
+    #prof.disable() #(!)
+    # with open(profiling_stats_path, 'w') as stream: #(!)
+    #    stats = pstats.Stats(prof, stream = stream).strip_dirs().sort_stats('cumtime') #(!)
+    #    stats.print_stats(20) #(!)

@@ -9,6 +9,7 @@ import pandas as pd
 path_for_imports = os.path.abspath('.')
 def initial_data_to_dataframe(folder_str, num_events) -> pd.DataFrame:
     """
+    NOTE: This is essentially depricated, keeping just in case.
     Tuysuz-processed edge data came in a format different to the one I want to use.
     Converts it into a pandas DataFrame
 
@@ -36,7 +37,7 @@ def initial_data_to_dataframe(folder_str, num_events) -> pd.DataFrame:
 
     return df_combined
 
-def load_events(event_files, dataset = 'edge', folder = None) -> pd.DataFrame:
+def load_events(event_files, dataset = 'edge', folder = None, sample = False) -> pd.DataFrame:
     """
     Fetches train and test data along with their labels.
     Can specify which database to work with.
@@ -63,8 +64,13 @@ def load_events(event_files, dataset = 'edge', folder = None) -> pd.DataFrame:
         files_folder_as_list = os.listdir(files_folder_str)
         files_folder_as_list.sort()
         data_files = files_folder_as_list[:event_files] #this is a list of strings
-        data_list = [pd.DataFrame(np.load(files_folder_str+'/'+event, allow_pickle = True),
-        columns = column_names) for event in data_files]
+        #NOTE: ADDED 'sample' method in that can be used to obtain only a few data points, can be used for dev and debugging
+        if sample:
+            data_list = [pd.DataFrame(np.load(files_folder_str+'/'+event, allow_pickle = True),
+            columns = column_names)[:200] for event in data_files]
+        else:
+            data_list = [pd.DataFrame(np.load(files_folder_str+'/'+event, allow_pickle = True),
+            columns = column_names)[:200] for event in data_files]
         events_data = pd.concat(data_list).reset_index(drop = True)
     else:
         raise ValueError('database must be chosen from (\'initial\', \'edge\', \'triplet\', \'io_triplet_pair\')')

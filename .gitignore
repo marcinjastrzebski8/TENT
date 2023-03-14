@@ -1,3 +1,4 @@
+#NOTE: this gitignore is based on a template from github
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -50,6 +51,8 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+profiling_stats/*
+logs/*
 
 # Translations
 *.mo
@@ -76,7 +79,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-
+logbook.ipynb
 # IPython
 profile_default/
 ipython_config.py
@@ -127,3 +130,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+#These appear along with .npy files
+*.DS_Store

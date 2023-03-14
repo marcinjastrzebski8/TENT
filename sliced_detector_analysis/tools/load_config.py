@@ -14,10 +14,10 @@ def load_config(file_path = None):
 class TestLoad(unittest.TestCase):
     """
     Test config files can be read appropriately on an example config file.
-    Note: to test, need to run from top of QuantumKernelEstimation project
+    Note: to test, need to run from top of TENT project
     """
     def test_loader(self):
-        path_to_example = Path().absolute() / 'QuantumKernelEstimation/sliced_detector_analysis/configs/example.yaml'
+        path_to_example = Path().absolute() / 'TENT/sliced_detector_analysis/configs/example.yaml'
         test_variables, filename = load_config(path_to_example)
         print(test_variables)
         self.assertEqual(test_variables['division'], 'new_phi')

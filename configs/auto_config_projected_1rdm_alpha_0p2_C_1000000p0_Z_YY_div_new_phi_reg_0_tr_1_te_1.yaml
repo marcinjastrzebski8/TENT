@@ -1,0 +1,25 @@
+C_class: 1000000.0
+C_quant: 1000000.0
+add_to_tracklet: null
+alpha: 0.2
+circuit_width: 9
+class_weight:
+  0: 1.0
+  1: 1.0
+data_scaler: global
+division: new_phi
+gamma_class: 1
+gamma_quant: 1
+keep_kernel: true
+kernel_type: projected_1rdm
+load_model: false
+model_saved_path: trained_models/
+num_test: 1
+num_train: 1
+paulis:
+- Z
+- YY
+region_id: '0'
+result_output_path: output/
+sample_flag: true
+tracklet_dataset: triplet
