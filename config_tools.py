@@ -16,7 +16,7 @@ def set_config_name(config):
     Need to think about all the information that can identify a job
     config: a config dictionary (not a .yaml file)
     """
-    filename = config['kernel_type']
+    filename = config['tracklet_dataset']+config['kernel_type']
     if 'classical' in config['kernel_type']:
         filename += '_C_'+str(config['C_class']).replace('.','p') #remove dots from names [coming from floats]
         filename += '_gamma_'+str(config['gamma_class']).replace('.','p')

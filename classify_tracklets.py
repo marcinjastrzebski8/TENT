@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import time
 import cProfile as profile #should also do mprof for memory usage
-import pstats
+import pstats #this for profiling as well
 
 from sklearn import preprocessing
 
@@ -231,7 +231,8 @@ if __name__ == '__main__':
     tracklet_type = config['kernel_type']+'_'+tracklet_type
     results_file = tracklet_type+'_predictions_'+str(config['num_train'])+'_'+str(config['num_test'])+'_events_reg_'+str(config['region_id'])+'_in_'+str(config['division'])
 
-    np.save(results_file, results)
+    results_path = str(Path().absolute() /'predictions')+'/'+results_file #(!)
+    np.save(results_path, results)
     #prof.disable() #(!)
     # with open(profiling_stats_path, 'w') as stream: #(!)
     #    stats = pstats.Stats(prof, stream = stream).strip_dirs().sort_stats('cumtime') #(!)

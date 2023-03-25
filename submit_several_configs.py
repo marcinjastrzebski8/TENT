@@ -29,7 +29,7 @@ def main(submit_to_batch):
         load_model = False,
         tracklet_dataset = None, #(!)
         division = 'new_phi', 
-        region_id = '0',
+        region_id = None, #(!!) This is a special variable; if run on the batch, it's submitted as 16 jobs
         data_scaler = None, #(!)
         add_to_tracklet = None,
         num_test = None, #(!) 
@@ -56,20 +56,30 @@ def main(submit_to_batch):
     tracklet_type_list = ['triplet', 'inner_triplet']
     data_scaler_list = ['global', 'inner_global']
     kernel_type_list = ['classical_keep_kernel', 'fidelity', 'projected_1rdm'] #class, quant, quant-projected [... to come?]
+  
     for i, tracklet_type in enumerate(tracklet_type_list):
         config['data_scaler'] = data_scaler_list[i] #depends on tracklet type
         config['tracklet_dataset'] = tracklet_type
         for kernel_type in kernel_type_list:
             config['kernel_type'] = kernel_type
-            for te_size in test_size_list[i]:
-                config['num_test'] = te_size
-                for tr_size in train_size_list[i]:
-                    config['num_train'] = tr_size
-                    run_success = run(config, submit_to_batch)
-                    #if jobs run long for a given train size then next train sizes will take even longer, thus move out of loop
+            #loops below are going to fail if the innermost loop fails, use this to determine whether to break out of them
+            run_success = 0 
+            for r_id in [str(i) for i in range(16)]:
+                config['region_id'] = r_id
+                if run_success !=0:
+                    break
+                for te_size in test_size_list[i]:
+                    config['num_test'] = te_size
                     if run_success !=0:
-                        print('gon break bro')
                         break
+                    for tr_size in train_size_list[i]:
+                        config['num_train'] = tr_size
+                        run_success = run(config, submit_to_batch)
+                        #if jobs run long for a given train size then next (train sizes, test sizes, regions) will take >= time 
+                        if run_success !=0:
+                            print('gon break bro')
+                            break
+
 if __name__ == '__main__':
     batch_flag = False #could have this True on the cluster and False locally?
     main(batch_flag)

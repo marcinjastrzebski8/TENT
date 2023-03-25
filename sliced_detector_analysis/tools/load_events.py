@@ -65,6 +65,7 @@ def load_events(event_files, dataset = 'edge', folder = None, sample = False) ->
         files_folder_as_list.sort()
         data_files = files_folder_as_list[:event_files] #this is a list of strings
         #NOTE: ADDED 'sample' method in that can be used to obtain only a few data points, can be used for dev and debugging
+        #TODO: PROPAGATE THIS FUNCTIONALITY
         if sample:
             data_list = [pd.DataFrame(np.load(files_folder_str+'/'+event, allow_pickle = True),
             columns = column_names)[:200] for event in data_files]
