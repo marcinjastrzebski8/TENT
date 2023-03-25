@@ -154,11 +154,13 @@ class QKE_SVC():
                 model = SVC(kernel = 'precomputed',
                 cache_size = self.cache_chosen,
                 class_weight = self.class_weight)
-                kernel_name = 'kernel_'+from_config
-
+                
                 train_matrix = rbf_kernel(train_data, gamma = self.gamma)
+
+                kernel_name = 'kernel_'+from_config
                 kernel_path = str(Path().absolute() / 'saved_kernels' / kernel_name)
                 np.save(kernel_path, train_matrix)
+
                 model.fit(train_matrix, train_labels)
         else: #use quantum kernel estimation
             #changed from QSVC implementation
@@ -174,7 +176,11 @@ class QKE_SVC():
                 #but keeping both options just for completeness
                 #from preliminary checks (one run on small data sample) this appears slower!
                 train_matrix = self.kernel.evaluate(train_data)
-                np.save('kernel_'+from_config, train_matrix)
+
+                kernel_name = 'kernel_'+from_config
+                kernel_path = str(Path().absolute() / 'saved_kernels' / kernel_name)
+                np.save(kernel_path, train_matrix)
+
                 model.fit(train_matrix, train_labels)
         #save fitted SVC model
         filename = 'model_from_'+from_config+'.sav'
