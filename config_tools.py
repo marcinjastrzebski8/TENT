@@ -36,14 +36,14 @@ def produce_shell_script(config_path, config_name: str):
     """
     Create a .sh file which can be run to send multiple jobs to a batch farm.
     """
-    file = 'job'+config_name.removesuffix('.yaml')+'.sh'
+    file = 'job_'+config_name.removesuffix('.yaml')+'.sh'
     with open(file, 'a') as f:
         #I don't know if I should add a memory request
         f.write('#usr/bin/bash\n')
-        f.write('#PBS -N ' + config_name)
-        f.write('#PBS -k o')
-        f.write('#PBS -j oe')
-        f.write('#PBS -q long')
-        f.write('module load dot')
-        f.write('source activate qiskit_env')
-        f.write('python3 classify_tracklets.py '+config_path)
+        f.write('#PBS -N ' + config_name+'\n')
+        f.write('#PBS -k o\n')
+        f.write('#PBS -j oe\n')
+        f.write('#PBS -q long\n')
+        f.write('module load dot\n')
+        f.write('source activate qiskit_env\n')
+        f.write('python3 classify_tracklets.py '+config_path+'\n')
