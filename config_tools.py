@@ -36,7 +36,7 @@ def produce_shell_script(config_path, config_name: str):
     """
     Create a .sh file which can be run to send multiple jobs to a batch farm.
     """
-    file = 'job_'+config_name.removesuffix('.yaml')+'.sh'
+    file = 'shell_jobs/job_'+config_name.removesuffix('.yaml')+'.sh'
     with open(file, 'a') as f:
         #I don't know if I should add a memory request
         f.write('#usr/bin/bash\n')

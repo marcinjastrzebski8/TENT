@@ -141,3 +141,4 @@ configs/*
 long_jobs.txt
 sliced_detector_analysis/saved_classifiers/*
 predictions/*
+shell_jobs/*

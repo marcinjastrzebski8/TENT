@@ -6,7 +6,7 @@ def run(config_path, submit_to_batch, config_name = None):
     max_runtime = 200 #in seconds, applies when running locally (not submitted to batch)
     if submit_to_batch:
         #need to figure out how many .sh files I need and what names they should have
-        subprocess.run(['qsub', 'configs/auto_config_'+config_name+'.sh'])
+        subprocess.run(['qsub', 'shell_jobs/auto_config_'+config_name+'.sh'])
         return 0
     else:
         try:
