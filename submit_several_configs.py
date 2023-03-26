@@ -81,11 +81,11 @@ def main(batch_job):
                                 print('gon break bro')
                                 break
                         elif batch_job:
-                            produce_shell_script(config_path, config_name)
-                            run(config_path, submit_to_batch = True)
+                            produce_shell_script(config_path, config_name = config_name)
+                            run(config_path, submit_to_batch = True, config_name= config_name)
                         
                         
 
 if __name__ == '__main__':
-    batch_flag = False #could have this True on the cluster and False locally?
+    batch_flag = True #could have this True on the cluster and False locally?
     main(batch_flag)
