@@ -52,4 +52,4 @@ def produce_shell_script(config_path, config_name: str):
         f.write('module load dot\n')
         f.write('source activate qiskit_env\n')
         f.write('\n')
-        f.write('python3 classify_tracklets.py '+config_path+'\n')
+        f.write('(cd /unix/atlastracking/marcinj/TENT/TENT && python3 classify_tracklets.py '+config_path+')\n')
