@@ -40,10 +40,16 @@ def produce_shell_script(config_path, config_name: str):
     with open(file, 'a') as f:
         #I don't know if I should add a memory request
         f.write('#usr/bin/bash\n')
+        f.write('\n')
         f.write('#PBS -N ' + config_name+'\n')
+        f.write('\n')
         f.write('#PBS -k o\n')
+        f.write('\n')
         f.write('#PBS -j oe\n')
+        f.write('\n')
         f.write('#PBS -q long\n')
+        f.write('\n')
         f.write('module load dot\n')
         f.write('source activate qiskit_env\n')
+        f.write('\n')
         f.write('python3 classify_tracklets.py '+config_path+'\n')
