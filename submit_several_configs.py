@@ -1,30 +1,29 @@
 import subprocess
 import sys
-from config_tools import produce_config, set_config_name
+from config_tools import produce_config, set_config_name, produce_shell_script
 
-def run(config, submit_to_batch):
-    file_name = set_config_name(config)
-    file_path = produce_config(config, file_name)
+def run(config_path, submit_to_batch, config_name = None):
     max_runtime = 200 #in seconds, applies when running locally (not submitted to batch)
     if submit_to_batch:
         #need to figure out how many .sh files I need and what names they should have
-        subprocess.run(['qsub', '-v', 'input='+file_path, 'WHAT_SHOULD_THE_NAME_BE.sh'])
+        subprocess.run(['qsub', '-q' 'WHAT_SHOULD_THE_NAME_BE.sh'])
+        return 0
     else:
         try:
             #run locally, if takes too long - will need to be submitted
             command = 'python3 classify_tracklets.py'.split()
-            command.append(file_path)
+            command.append(config_path)
             subprocess.run(command, timeout=max_runtime)
         except subprocess.TimeoutExpired:
             print('TOOK TOO LONG. TERMINATED. RUN ON BATCH (yourself).')
             print('************************************************')
             with open('long_jobs.txt', 'a') as file:
-                file.write(file_name+"\n")
+                file.write(config_path+"\n")
             return 1
         return 0
 
-def main(submit_to_batch):
-    #note (!) means filled inside the code
+def main(batch_job):
+    #note (!) means filled inside the function and iterated over
     config = dict(
         load_model = False,
         tracklet_dataset = None, #(!)
@@ -49,8 +48,6 @@ def main(submit_to_batch):
         sample_flag = True
     )
     #what to iterate over, essentially defines what analysis can be done
-    #i can and should defo parallelise (-t $PBS_ARRAYID) the different regions [==models] so don't include here
-    #note: but that means I'll need to call the config files accordingly
     train_size_list = [[1,2,3], [5,10,15]]
     test_size_list = [[1],[5]]
     tracklet_type_list = ['triplet', 'inner_triplet']
@@ -74,11 +71,20 @@ def main(submit_to_batch):
                         break
                     for tr_size in train_size_list[i]:
                         config['num_train'] = tr_size
-                        run_success = run(config, submit_to_batch)
-                        #if jobs run long for a given train size then next (train sizes, test sizes, regions) will take >= time 
-                        if run_success !=0:
-                            print('gon break bro')
-                            break
+                        config_name = set_config_name(config)
+                        config_path = produce_config(config, config_name)
+                        if not batch_job:
+                            run_success = run(config_path, submit_to_batch = False)
+                            #if jobs run long for a given train size then 
+                            #all other (train sizes, test sizes, regions) will take >= time 
+                            if run_success !=0:
+                                print('gon break bro')
+                                break
+                        elif batch_job:
+                            produce_shell_script(config_path, config_name)
+                            run(config_path, submit_to_batch = True)
+                        
+                        
 
 if __name__ == '__main__':
     batch_flag = False #could have this True on the cluster and False locally?

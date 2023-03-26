@@ -13,7 +13,6 @@ def produce_config(config, file_name):
 
 def set_config_name(config):
     """
-    Need to think about all the information that can identify a job
     config: a config dictionary (not a .yaml file)
     """
     filename = config['tracklet_dataset']+'_'+config['kernel_type']
@@ -32,3 +31,19 @@ def set_config_name(config):
     filename += '_tr_'+str(config['num_train'])
     filename += '_te_'+str(config['num_test'])
     return filename
+
+def produce_shell_script(config_path, config_name: str):
+    """
+    Create a .sh file which can be run to send multiple jobs to a batch farm.
+    """
+    file = 'job'+config_name.removesuffix('.yaml')+'.sh'
+    with open(file, 'a') as f:
+        #I don't know if I should add a memory request
+        f.write('#usr/bin/bash\n')
+        f.write('#PBS -N ' + config_name)
+        f.write('#PBS -k o')
+        f.write('#PBS -j oe')
+        f.write('#PBS -q long')
+        f.write('module load dot')
+        f.write('source activate qiskit_env')
+        f.write('python3 classify_tracklets.py '+config_path)
