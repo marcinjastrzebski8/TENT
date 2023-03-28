@@ -41,7 +41,7 @@ def main(batch_job):
         C_quant = 1.0e+6,
         alpha = 0.2,
         paulis = ['Z', 'YY'],
-        circuit_width = 9,
+        circuit_width = None, #(!)
         model_saved_path = 'trained_models/',
         result_output_path = 'output/',
         keep_kernel = True,
@@ -50,13 +50,15 @@ def main(batch_job):
     #what to iterate over, essentially defines what analysis can be done
     train_size_list = [[1,2,3], [5,10,15]]
     test_size_list = [[1],[5]]
-    tracklet_type_list = ['triplet', 'inner_triplet']
+    circuit_width = [6, 9]
+    tracklet_type_list = ['edge', 'inner_triplet']
     data_scaler_list = ['global', 'inner_global']
     kernel_type_list = ['classical_keep_kernel', 'fidelity', 'projected_1rdm'] #class, quant, quant-projected [... to come?]
   
     for i, tracklet_type in enumerate(tracklet_type_list):
         config['data_scaler'] = data_scaler_list[i] #depends on tracklet type
         config['tracklet_dataset'] = tracklet_type
+        config['circuit_width'] = circuit_width[i]
         for kernel_type in kernel_type_list:
             config['kernel_type'] = kernel_type
             #loops below are going to fail if the innermost loop fails, use this to determine whether to break out of them
@@ -87,5 +89,5 @@ def main(batch_job):
                         
 
 if __name__ == '__main__':
-    batch_flag = True #could have this True on the cluster and False locally?
+    batch_flag = False #could have this True on the cluster and False locally?
     main(batch_flag)

@@ -45,6 +45,7 @@ def load_events(event_files, dataset = 'edge', folder = None, sample = False) ->
     event_files: int in range <1;20>, (test) or <1,80> (train) how many events to test/train on 
     database:    'initial' is Tuysuz pre-processed edges (redundant soon), 'edge', 'triplet', 'io_triplet_pair', 'inner_triplet'
     folder:      'train' or 'test'
+    sample:      if True, only read a subset of tracklets from a given event. 
     """
 
     #make sure this path points to the right folders
@@ -54,7 +55,7 @@ def load_events(event_files, dataset = 'edge', folder = None, sample = False) ->
         events_data = initial_data_to_dataframe(files_folder_str, event_files)
     elif dataset in ('edge', 'triplet', 'balanced_triplet', 'io_triplet_pair', 'inner_triplet'):
         if dataset == 'edge':
-            column_names = ['edge', 'label', 'eta', 'phi', 
+            column_names = ['object_coords', 'label', 'eta', 'phi', 
             'true_pt', 'layer','track_length', 'hit1_id', 'hit2_id', 'particle_num']
         elif dataset in ('triplet', 'balanced_triplet', 'inner_triplet'):
             column_names = ['object_coords','label', 'phi_breaking','theta_breaking','pt_estimate', 'ip','pt','layers', 'track_lengths',
