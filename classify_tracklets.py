@@ -179,6 +179,12 @@ if __name__ == '__main__':
 
     train_tracklets_in_region = [np.array(train_data_in_region['object'].values[item]) for item in range(len(train_data_in_region))]
     train_labels_in_region = [np.array(train_data_in_region['label'].values[item]) for item in range(len(train_data_in_region))]
+
+    #save labels from the training data, used for computing complexity of kernel
+    tr_labels_dir = str(Path().absolute() / 'saved_tr_labels')
+    tr_labels_filename = 'train_labels_'+config['tracklet_dataset']+'_tr_'+str(config['num_train'])+'_reg_'+str(config['region_id'])+'_in_'+config['division']+'.npy'
+    np.save(tr_labels_dir+'/'+tr_labels_filename, train_labels_in_region)
+
     tracklet_dimension = np.shape(train_tracklets_in_region)[1]
     if not (config['circuit_width'] == tracklet_dimension):
         raise AssertionError('Tracklet object has dimension: ', tracklet_dimension, '.',

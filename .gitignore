@@ -142,3 +142,4 @@ long_jobs.txt
 sliced_detector_analysis/saved_classifiers/*
 predictions/*
 shell_jobs/*
+saved_tr_labels/*

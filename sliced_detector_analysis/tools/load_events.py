@@ -64,14 +64,12 @@ def load_events(event_files, dataset = 'edge', folder = None, sample = False) ->
         files_folder_as_list = os.listdir(files_folder_str)
         files_folder_as_list.sort()
         data_files = files_folder_as_list[:event_files] #this is a list of strings
-        #NOTE: ADDED 'sample' method in that can be used to obtain only a few data points, can be used for dev and debugging
-        #TODO: PROPAGATE THIS FUNCTIONALITY
         if sample:
             data_list = [pd.DataFrame(np.load(files_folder_str+'/'+event, allow_pickle = True),
             columns = column_names)[:200] for event in data_files]
         else:
             data_list = [pd.DataFrame(np.load(files_folder_str+'/'+event, allow_pickle = True),
-            columns = column_names)[:200] for event in data_files]
+            columns = column_names) for event in data_files]
         events_data = pd.concat(data_list).reset_index(drop = True)
     else:
         raise ValueError('database must be chosen from (\'initial\', \'edge\', \'triplet\', \'io_triplet_pair\')')
