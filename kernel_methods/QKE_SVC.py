@@ -204,6 +204,6 @@ class QKE_SVC():
                     test_matrix = self.kernel.evaluate(test_data, train_data)
                 else:
                     raise ValueError('Kernel type not supported')
-                return self.model.predict(test_matrix)
+                return self.model.predict(test_matrix), self.model.decision_function(test_matrix)
             else:
-                return self.model.predict(test_data)
+                return self.model.predict(test_data), self.model.decision_function(test_data)

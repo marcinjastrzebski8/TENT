@@ -220,13 +220,14 @@ if __name__ == '__main__':
 
     #test
     if config['keep_kernel']:
-        model_predictions = QKE_model.test(test_tracklets_in_region, train_tracklets_in_region)
+        model_predictions, decision_functions = QKE_model.test(test_tracklets_in_region, train_tracklets_in_region)
     else:
-        model_predictions = QKE_model.test(test_tracklets_in_region)
+        model_predictions, decision_functions = QKE_model.test(test_tracklets_in_region)
 
 
     #update dataframe with prediction column
     test_data_in_region.insert(np.shape(test_data_in_region)[1], 'prediction', model_predictions)
+    test_data_in_region.insert(np.shape(test_data_in_region)[1], 'decision_function', decision_functions)
 
     #save resulting dataframe
     results = test_data_in_region.to_numpy()
