@@ -7,12 +7,12 @@ import joblib
 import numpy as np
 import pandas as pd
 import time
+
 import cProfile as profile #should also do mprof for memory usage
-import pstats #this for profiling as well
+from prof_tools import save_prof_stats
 
 from sklearn import preprocessing
 
-import sys
 from pathlib import Path
 from kernel_methods.QKE_SVC import QKE_SVC
 from sliced_detector_analysis.tools import (find_detector_region as find_region, 
@@ -118,16 +118,16 @@ def add_physics_to_tracklet(data_in_region, properties_to_add) -> None:
 
 
 if __name__ == '__main__':
-    #NOTE: COMMENTED OUT PROFILING, WANT TO DO IT IN A SEPARATE BRANCH AS IT INCREASES AMOUNT OF OUTPUT PRODUCED
-    #AND PROBABLY SLOWS PERFORMANCE DOWN AS WELL
-    #prof = profile.Profile() #(!)
-    #prof.enable() #(!)
+    #PROFILING ACTIVATED
+    prof = profile.Profile()
+    prof.enable()
+    ######################
+
     #load configuration parameters defining the classification run
     config, config_filename = load_config.load_config(parse_args.parse_args().config)
 
-    #profiling_stats_filename = 'classify_tracklets_'+config['kernel_type']+'_'+str(config['num_train'])+'_'+str(config['num_test'])+'.txt' #(!)
-
-    #profiling_stats_path = str(Path().absolute() /'profiling_stats')+'/'+profiling_stats_filename #(!)
+    profiling_stats_filename = 'prof_stats_'+config['kernel_type']+'_'+str(config['num_train'])+'_'+str(config['num_test'])+'.txt'
+    profiling_stats_path = str(Path().absolute() /'profiling_stats')+'/'+profiling_stats_filename 
 
     QKE_model = QKE_SVC(config['kernel_type'], 
     config['class_weight'], 
@@ -136,9 +136,7 @@ if __name__ == '__main__':
     C_class = config['C_class'],
     alpha = config['alpha'],
     C_quant = config['C_quant'],
-    #single_mapping = config['single_mapping'],
-    #pair_mapping = config['pair_mapping'],
-    #interaction = config['interaction'],
+    paulis = config['paulis'],
     circuit_width = config['circuit_width'],
     keep_kernel = config['keep_kernel'])
 
@@ -240,7 +238,7 @@ if __name__ == '__main__':
 
     results_path = str(Path().absolute() /'predictions')+'/'+results_file #(!)
     np.save(results_path, results)
-    #prof.disable() #(!)
-    # with open(profiling_stats_path, 'w') as stream: #(!)
-    #    stats = pstats.Stats(prof, stream = stream).strip_dirs().sort_stats('cumtime') #(!)
-    #    stats.print_stats(20) #(!)
+    
+    #DISABLE AND SAVE PROFILING RESULTS
+    prof.disable()
+    save_prof_stats(prof, config)
