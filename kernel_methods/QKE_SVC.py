@@ -3,7 +3,7 @@ Use data provided to train and save an svm classifier
 Can use a classicla svm or quantum-enhanced
 STATUS: in dev, job report could be compiled in main
 """
-
+import unittest
 import numpy as np
 import sys
 import os
@@ -12,6 +12,7 @@ import joblib
 from functools import reduce
 import time
 from pathlib import Path
+
 
 from sklearn.svm import SVC
 from sklearn.metrics.pairwise import rbf_kernel
@@ -28,6 +29,10 @@ from qiskit_machine_learning.kernels import FidelityQuantumKernel, QuantumKernel
 from qiskit.algorithms.state_fidelities import ComputeUncompute
 from qiskit_machine_learning.algorithms import QSVC
 from qiskit_ibm_runtime import QiskitRuntimeService, Sampler
+#for testing
+from qiskit import QuantumCircuit, QuantumRegister 
+from qiskit.circuit import ParameterVector
+from qiskit.quantum_info import Statevector
 
 from . import projected_methods
 
@@ -105,7 +110,6 @@ class QKE_SVC():
             self.gamma = gamma_class
             self.C_class = C_class
         else:
-            #TODO:reshuffle these into options for original and projected methods
             self.alpha = alpha
             self.C_quant = C_quant
             self.backend = QuantumInstance(AerSimulator(method = 'statevector'))
@@ -152,6 +156,7 @@ class QKE_SVC():
                 #this way we can keep the kernel matrix
                 #timing may differ from original
                 model = SVC(kernel = 'precomputed',
+                C = self.C_class,
                 cache_size = self.cache_chosen,
                 class_weight = self.class_weight)
                 
@@ -207,3 +212,147 @@ class QKE_SVC():
                 return self.model.predict(test_matrix), self.model.decision_function(test_matrix)
             else:
                 return self.model.predict(test_data), self.model.decision_function(test_data)
+
+
+class TestOldVsNew(unittest.TestCase):
+    """
+    Test to ensure old and new implementations of feature maps are the same
+    """
+    #copied from old version of the project, old method of implementing feature maps
+    def U_flexible(self, nqubits,params,single_mapping=0,pair_mapping=0,interaction = 'ZZ', alpha = 1, draw = False):
+            """
+            U gate defines the feature map circuit produced by feature_map
+            Applies a series of rotations parametrised by input data.
+            From Havlicek et. al.
+            circuit -> QuantumCircuit object to which U is attached - note: using .append() instead causes a qiskit bug to throw errors later
+            params  -> ParameterVector objects, each parameter corredponds to a feature in a data point
+
+            User can choose function for mapping
+            """
+            qbits = QuantumRegister(nqubits,'q')
+            circuit = QuantumCircuit(qbits)
+
+            #define some maps for single-qubit gates to choose from
+            def single_map(param):
+                if single_mapping == 0:
+                    return param*nqubits
+                elif single_mapping == 1:
+                    return param
+                elif single_mapping == 2:
+                    return param*param
+                elif single_mapping == 3:
+                    return param*param*param #note ** does not work for qiskit ParameterVector element objects
+                elif single_mapping == 4:
+                    return param*param*param*param 
+
+
+            #define some maps for two-qubit gates to choose from
+            def pair_map(param1,param2):
+                if pair_mapping == 0:
+                    return param1*param2
+                elif pair_mapping == 1:
+                    return (np.pi-param1)*(np.pi-param2)
+                elif pair_mapping == 2:
+                    return (np.pi-(param1*param1))*(np.pi-(param2*param2))
+                elif pair_mapping == 3:
+                    return(np.pi-(param1*param1*param1))*(np.pi-(param2*param2*param2))
+                elif pair_mapping == 4:
+                    return(np.pi-(param1*param1*param1*param1))*(np.pi-(param2*param2*param2*param2))
+
+            #use chosen single-qubit mapping to make a layer of single-qubit gates
+            for component in range(nqubits):
+                phi_j = single_map(params[component])
+                circuit.rz(-2*alpha*phi_j,qbits[component])
+            #use chosen two-qubit mapping to make a layer of 2-qubit gates
+            for first_component in range(0,nqubits-1):
+                for second_component in range(first_component+1,nqubits):
+                    #Havlicek
+                    #Note there was an mistake here when making results until 19/05/2022. last line was (qbits[0], qbits[component]) not sure how that even worked
+                    #Note these are implemented to only use H, CX, X, Z (could just say 'rz1, rz2')
+                    phi_ij = pair_map(params[first_component],params[second_component])
+                    if interaction == 'ZZ':
+                        circuit.cx(qbits[first_component],qbits[second_component])
+                        circuit.rz(-2*alpha*phi_ij,qbits[second_component])
+                        circuit.cx(qbits[first_component],qbits[second_component])
+                        #Park
+                    if interaction == 'YY': 
+                        circuit.rx(np.pi/2,qbits[first_component])
+                        circuit.rx(np.pi/2,qbits[second_component])
+                        circuit.cx(qbits[first_component], qbits[second_component])
+                        circuit.rz(-2*alpha*phi_ij, qbits[second_component])
+                        circuit.cx(qbits[first_component], qbits[second_component])
+                        circuit.rx(-np.pi/2, qbits[first_component])
+                        circuit.rx(-np.pi/2, qbits[second_component])
+                    if interaction == 'XX':
+                        #get this from Simeon
+                        pass
+            return circuit
+    
+    def feature_map(self, nqubits, U, show=False):
+        """
+        Feature map circuit following Havlicek et al.
+        nqubits  -> int, number of qubits, should match elements of input data
+        U        -> gate returning QuantumCircuit object. Defines the feature map.
+        """
+        qbits = QuantumRegister(nqubits,'q')
+        circuit = QuantumCircuit(qbits)
+        #barriers just to make visualisation nicer
+        circuit.h(qbits[:])
+        circuit.barrier()
+        #forward with x_i
+        circuit.append(U.to_instruction(),circuit.qubits)
+        circuit.barrier()
+        circuit.h(qbits[:])
+        circuit.barrier()
+        circuit.append(U.to_instruction(),circuit.qubits)
+        circuit.barrier()
+
+        return circuit
+    
+    def test_feature_maps(self):
+        param_vector = ParameterVector('phi', 9)
+        random_features = np.random.rand(9)
+
+        old_gate = self.U_flexible(9, param_vector, 1, 1, 'YY', alpha = 0.1)
+        quant_old_map = self.feature_map(9, old_gate)
+
+        quant_new = QKE_SVC('fidelity', {0:1, 1:1}, 1, 1, 1000000, 0.2, 1000000, ['Z', 'YY'], 9, True)
+        quant_new_map = quant_new.featureMap
+
+        quant_old_map = quant_old_map.assign_parameters(random_features)
+        quant_new_map = quant_new_map.assign_parameters(random_features)
+
+        old_sv = Statevector(quant_old_map)
+        new_sv = Statevector(quant_new_map)
+
+        self.assertEqual(old_sv.equiv(new_sv), True)
+
+    def test_kernels(self):
+        #to avoid copying large chunks of previous code I'm comparing to results obtained once, in an equivalent setup with the old code
+        #NOTE this isn't ideal for other people using this repo; could copy results into here but they don't mean much to an external user?
+        old_preds_quant = list(np.load('/Users/marcinjastrzebski/Desktop/ACADEMIA/FIRST_YEAR/TrackML/QuantumKernelEstimation/for_TENT_unittest_quant.npy'))
+        old_preds_class = list(np.load('/Users/marcinjastrzebski/Desktop/ACADEMIA/FIRST_YEAR/TrackML/QuantumKernelEstimation/for_TENT_unittest_class.npy'))
+
+        quant_new = QKE_SVC('fidelity', {0:1, 1:1}, 1, 1, 1000000, 0.2, 1000000, ['Z', 'YY'], 3, True)
+        class_new = QKE_SVC('classical_keep_kernel', {0:1, 1:1}, 1, 1, 1000000, 0.2, 1000000, ['Z', 'YY'], 3, keep_kernel=True)
+        np.random.seed(1008)
+        X_train = np.random.rand(100,3)
+        y_train = np.random.choice([0,1], 100)
+
+        X_test = np.random.rand(50,3)
+        y_test = np.random.choice([0,1], 50)
+
+        quant_new.set_model(load = False, train_data = X_train, train_labels = y_train, from_config = 'unittest_quant')
+        new_preds_quant = list(quant_new.test(X_test, X_train)[0])
+        class_new.set_model(load = False, train_data = X_train, train_labels = y_train, from_config = 'unittest_class')
+        new_preds_class = list(class_new.test(X_test, X_train)[0])
+
+
+
+        self.assertListEqual(new_preds_quant, old_preds_quant)
+        self.assertListEqual(old_preds_class, new_preds_class)
+        
+        
+if __name__ == '__main__':
+    unittest.main()
+        
