@@ -136,9 +136,7 @@ if __name__ == '__main__':
     C_class = config['C_class'],
     alpha = config['alpha'],
     C_quant = config['C_quant'],
-    #single_mapping = config['single_mapping'],
-    #pair_mapping = config['pair_mapping'],
-    #interaction = config['interaction'],
+    paulis = config['paulis'],
     circuit_width = config['circuit_width'],
     keep_kernel = config['keep_kernel'])
 
