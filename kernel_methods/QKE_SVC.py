@@ -60,30 +60,39 @@ class ProjectedKernel1RDM(BaseKernel):
     def __init__(self, feature_map, gamma):
         super().__init__(feature_map=feature_map)
         self.gamma = gamma
-    def evaluate(self, x1: np.ndarray, x2: np.ndarray = None) -> np.ndarray:
-        x1, x2 = self._validate_input(x1, x2)
+    def evaluate(self, X1: np.ndarray, X2: np.ndarray = None) -> np.ndarray:
+        X1, X2 = self._validate_input(X1, X2)
         #determine if calculating self inner product
         is_symmetric = True
-        if x2 is None:
-            x2 = x1
-        elif not np.array_equal(x1, x2):
+        if X2 is None:
+            X2 = X1
+        elif not np.array_equal(X1, X2):
             is_symmetric = False
 
-        kernel_shape = (x1.shape[0], x2.shape[0])
-        kernel_matrix = np.zeros(kernel_shape)
+        kernel_shape = (X1.shape[0], X2.shape[0])
+
         #TODO!!!!!!: CHECK if I can parallelise this (shared-memory, within each node)
         #BUT NOTE PROFILER WILL NOT WORK PROLLY (WOULD NEED PARALLEL PROFS)
         #SO SHOULD DO PROFILING ON ONE THREAD, THEN PARALLELISE
-        for i in range(x1.shape[0]):
-            for j in range(x2.shape[0]):
-                #unfortunately each estimation atm takes almost 1s, makes for very long kernel-finding
+
+        X1_proj = projected_methods.proj_xyz_data(self._feature_map, X1)
+        #avoid calculating same projections twice if calculating self inner product
+        if is_symmetric == True:
+            X2_proj = X1_proj
+        else: 
+            X2_proj = projected_methods.proj_xyz_data(self._feature_map, X2)
+    
+        kernel_matrix = np.zeros(kernel_shape)
+        for i in range(X1_proj.shape[0]):
+            for j in range(X2_proj.shape[0]):
                 if i == j: kernel_matrix[i][j] = 1.
+                #the kernel matrix is symmetric if self inner product, avoid calculating redundancies
                 elif (is_symmetric) and (j>i):
-                    kernel_matrix[i][j] = projected_methods.proj_kernel_1rdm(self._feature_map, x1[i], x2[j], self.gamma)
+                    kernel_matrix[i][j] = np.exp(-self.gamma*((X1_proj[i] - X2_proj[j])**2).sum())
                     kernel_matrix[j][i] = kernel_matrix[i][j]
                 elif (is_symmetric) and (i>j): pass
                 else:
-                    kernel_matrix[i][j] = projected_methods.proj_kernel_1rdm(self._feature_map, x1[i], x2[j], self.gamma)
+                    kernel_matrix[i][j] =  np.exp(-self.gamma*((X1_proj[i] - X2_proj[j])**2).sum())
         return kernel_matrix
 
 
