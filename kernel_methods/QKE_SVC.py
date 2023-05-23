@@ -31,7 +31,7 @@ from qiskit_machine_learning.algorithms import QSVC
 from qiskit_ibm_runtime import QiskitRuntimeService, Sampler
 #for testing
 from qiskit import QuantumCircuit, QuantumRegister 
-from qiskit.circuit import ParameterVector
+from qiskit.circuit import ParameterVector, Parameter
 from qiskit.quantum_info import Statevector
 
 from . import projected_methods
@@ -81,7 +81,6 @@ class ProjectedKernel1RDM(BaseKernel):
             X2_proj = X1_proj
         else: 
             X2_proj = projected_methods.proj_xyz_data(self._feature_map, X2)
-    
         kernel_matrix = np.zeros(kernel_shape)
         for i in range(X1_proj.shape[0]):
             for j in range(X2_proj.shape[0]):
@@ -360,7 +359,25 @@ class TestOldVsNew(unittest.TestCase):
 
         self.assertListEqual(new_preds_quant, old_preds_quant)
         self.assertListEqual(old_preds_class, new_preds_class)
+class TestProjectedKernel(unittest.TestCase):
+    def test_projected_kernel(self):
+        """
+        For a very simple embedding and dataset, check that the returned kernel is correct
+        """
+        simple_circuit = QuantumCircuit(2)
+        param = Parameter('theta')
+        simple_circuit.h(0)
+        simple_circuit.crx(param,0,1)
+        x1 = [[0], [np.pi]] #fake dataset with two, one-dim data points
+        gammas = [0.1, 0.2, 3, 1]
+        for gamma in gammas:
+            kernel = ProjectedKernel1RDM(simple_circuit, gamma)
+            train_kernel = kernel.evaluate(x1)
+            self.assertEqual(train_kernel[0][0], train_kernel[1][1])
+            self.assertEqual(train_kernel[0][1], train_kernel[1][0])
+            self.assertAlmostEqual(train_kernel[0][1], np.exp(-2*gamma))
         
+
         
 if __name__ == '__main__':
     unittest.main()
