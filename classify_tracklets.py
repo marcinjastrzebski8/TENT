@@ -2,18 +2,21 @@
 Classify tracklets in a region of a detector.
 Classification model can be trained or loaded.
 """
+import time
+t_start = time.time()
+import cProfile as profile #should also do mprof for memory usage
+import pstats #this for profiling as well
 
 import joblib
 import numpy as np
 import pandas as pd
-import time
-import cProfile as profile #should also do mprof for memory usage
-import pstats #this for profiling as well
-
-from sklearn import preprocessing
-
 import sys
 from pathlib import Path
+
+from sklearn import preprocessing
+from sklearn.model_selection import KFold
+from sklearn.metrics import roc_auc_score, f1_score, accuracy_score, precision_score, recall_score
+
 from kernel_methods.QKE_SVC import QKE_SVC
 from sliced_detector_analysis.tools import (find_detector_region as find_region, 
 load_events,
@@ -138,7 +141,8 @@ if __name__ == '__main__':
     C_quant = config['C_quant'],
     paulis = config['paulis'],
     circuit_width = config['circuit_width'],
-    keep_kernel = config['keep_kernel'])
+    keep_kernel = config['keep_kernel'],
+    entanglement = config['entanglement'])
 
     #decide detector division
     if config['division'] == 'new_phi':
@@ -160,7 +164,7 @@ if __name__ == '__main__':
         region_ids = div.get_region_ids()
         if config['region_id'] not in region_ids:
             raise ValueError('Please specify a valid region_id. Choose from:', region_ids,'. You passed:', config['region_id'])
-        
+    
     sample_flag = config['sample_flag'] #whether to load all data or just a sample (to dev, debug)
     #load train data - needed for quantum-enhanced even if model already trained
     train_data = load_events.load_events(config['num_train'], config['tracklet_dataset'], 'train', sample_flag)
@@ -187,7 +191,31 @@ if __name__ == '__main__':
     if not (config['circuit_width'] == tracklet_dimension):
         raise AssertionError('Tracklet object has dimension: ', tracklet_dimension, '.',
         ' Feature dimension expected: ', config['circuit_width'],'.')
+    
+    if config['hyperparam_opt_flag']:
+        #train-validation split obtained from train data for hyperparam optimisation
+        #no test data loaded
+        #NOTE: this is heavily based on Mohammad's code
+        
+        kfold = KFold(n_splits = 5, shuffle = True, random_state=1)
+        #this has shape (5,2) where each of the 5 tuples contains two lists of indeces: ([train, test])
+        indices = list(kfold.split(train_tracklets_in_region))
+        train_id, valid_id = indices[config['fold_id']]
+        print(f'valid_id: {valid_id}')
+        print(np.shape(train_tracklets_in_region))
+        #note the naming of these isn't the most instructive (test instead of valid, re-defining train)
+        ##but I'm trying to be consistent with the rest of the code
+        test_tracklets_in_region = [train_tracklets_in_region[i] for i in valid_id]
+        test_labels_in_region = [train_labels_in_region[i] for i in valid_id]
 
+        train_labels_in_region = [train_labels_in_region[i] for i in train_id]
+        train_tracklets_in_region = [train_tracklets_in_region[i] for i in train_id]
+
+        
+        
+
+    t_start_train = time.time()
+    print(f'Time elapsed before training starts: {t_start_train - t_start} s.')
 
     if config['load_model'] == False:
         #train model
@@ -200,21 +228,24 @@ if __name__ == '__main__':
         model = joblib.load(config['model_file'])
         QKE_model.set_model(load = True, model = model)
 
+    t_end_train = time.time()
+    print(f'Time taken to train: {t_end_train - t_start_train} s.')
 
-    #load test data
-    test_data = load_events.load_events(config['num_test'], config['tracklet_dataset'], 'test', sample_flag)
-    if div is not None:
-            test_data_in_region = test_data[test_data['object_coords'].apply(div.find_region) == config['region_id']].reset_index(drop = True)
-    else:
-        test_data_in_region = test_data
+    if not config['hyperparam_opt_flag']:
+        #load test data
+        test_data = load_events.load_events(config['num_test'], config['tracklet_dataset'], 'test', sample_flag)
+        if div is not None:
+                test_data_in_region = test_data[test_data['object_coords'].apply(div.find_region) == config['region_id']].reset_index(drop = True)
+        else:
+            test_data_in_region = test_data
     
-    #transform data
-    data_transform(test_data_in_region, method = config['data_scaler'])
+        #transform data
+        data_transform(test_data_in_region, method = config['data_scaler'])
 
-    #(add physics)
-    add_physics_to_tracklet(test_data_in_region, config['add_to_tracklet'])
+        #(add physics)
+        add_physics_to_tracklet(test_data_in_region, config['add_to_tracklet'])
 
-    test_tracklets_in_region = [np.array(test_data_in_region['object'].values[item]) for item in range(len(test_data_in_region))]
+        test_tracklets_in_region = [np.array(test_data_in_region['object'].values[item]) for item in range(len(test_data_in_region))]
 
     #test
     if config['keep_kernel']:
@@ -222,22 +253,38 @@ if __name__ == '__main__':
     else:
         model_predictions, decision_functions = QKE_model.test(test_tracklets_in_region)
 
+    t_end_test = time.time()
+    print(f'Time taken to test: {t_end_test - t_end_train} s.')
 
-    #update dataframe with prediction column
-    test_data_in_region.insert(np.shape(test_data_in_region)[1], 'prediction', model_predictions)
-    test_data_in_region.insert(np.shape(test_data_in_region)[1], 'decision_function', decision_functions)
+    if config['hyperparam_opt_flag']:
+        #no need to save full dataframes when doing hyperparam opt
+        #save only timing and score information
+        #NOTE: when running on the cluster, print statements are saved in output files (.o)
+        ##and info can be retrieved for further analysis
+        print(f'roc score: {roc_auc_score(test_labels_in_region, decision_functions)}')
+        print(f'f1 score: {f1_score(test_labels_in_region, model_predictions)}')
+        print(f'accuracy score: {accuracy_score(test_labels_in_region, model_predictions)}')
+        print(f'precision score: {precision_score(test_labels_in_region, model_predictions)}')
+        print(f'recall score: {recall_score(test_labels_in_region, model_predictions)}')
+    else:
+        #update dataframe with prediction column
+        test_data_in_region.insert(np.shape(test_data_in_region)[1], 'prediction', model_predictions)
+        test_data_in_region.insert(np.shape(test_data_in_region)[1], 'decision_function', decision_functions)
+        #save resulting dataframe
+        results = test_data_in_region.to_numpy()
+        tracklet_type = config['tracklet_dataset']
+        if isinstance(config['add_to_tracklet'], list):
+            tracklet_type = 'with_physics_'+tracklet_type
+        #add kernel info to saved file
+        tracklet_type = config['kernel_type']+'_'+tracklet_type
+        results_file = tracklet_type+'_predictions_'+str(config['num_train'])+'_'+str(config['num_test'])+'_events_reg_'+str(config['region_id'])+'_in_'+str(config['division'])
 
-    #save resulting dataframe
-    results = test_data_in_region.to_numpy()
-    tracklet_type = config['tracklet_dataset']
-    if isinstance(config['add_to_tracklet'], list):
-        tracklet_type = 'with_physics_'+tracklet_type
-    #add kernel info to saved file
-    tracklet_type = config['kernel_type']+'_'+tracklet_type
-    results_file = tracklet_type+'_predictions_'+str(config['num_train'])+'_'+str(config['num_test'])+'_events_reg_'+str(config['region_id'])+'_in_'+str(config['division'])
+        results_path = str(Path().absolute() /'predictions')+'/'+results_file #(!)
+        np.save(results_path, results)
 
-    results_path = str(Path().absolute() /'predictions')+'/'+results_file #(!)
-    np.save(results_path, results)
+    t_end = time.time()
+    print(f'Running the code took: {t_end - t_start} s.')
+
     #prof.disable() #(!)
     # with open(profiling_stats_path, 'w') as stream: #(!)
     #    stats = pstats.Stats(prof, stream = stream).strip_dirs().sort_stats('cumtime') #(!)
