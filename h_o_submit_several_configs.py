@@ -17,7 +17,7 @@ def run(config_path, config_name, submit_to_batch, check_dimension: bool, ):
     """
     max_runtime = 200 #in seconds, applies when running locally (not submitted to batch)
     if submit_to_batch:
-        subprocess.run(['qsub', 'shell_jobs/job_'+config_name+'.sh'])
+        subprocess.check_call(['qsub', 'shell_jobs/job_'+config_name+'.sh'])
         if check_dimension:
             print('Checking the dimension of the produced kernel')
             dim = check_eff_dim(config_name)
@@ -29,7 +29,7 @@ def run(config_path, config_name, submit_to_batch, check_dimension: bool, ):
             #run locally, if takes too long - will need to be submitted
             command = 'python3 classify_tracklets.py'.split()
             command.append(config_path)
-            subprocess.run(command, timeout=max_runtime)
+            subprocess.check_call(command, timeout=max_runtime)
             if check_dimension:
                 print('Checking the dimension of the produced kernel')
                 dim = check_eff_dim(config_name)
