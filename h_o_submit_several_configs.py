@@ -9,7 +9,7 @@ import sys
 from config_tools import produce_config, set_config_name, produce_shell_script
 from hyperparam_opt.h_opt_tools import check_eff_dim
 
-def run(config_path, config_name, submit_to_batch, check_dimension: bool, ):
+def run(config_path, config_name, submit_to_batch):
     """
     Run an SVM job as specified by a config file;
     Can be done locally (mostly for developing and checking)
@@ -17,25 +17,15 @@ def run(config_path, config_name, submit_to_batch, check_dimension: bool, ):
     """
     max_runtime = 200 #in seconds, applies when running locally (not submitted to batch)
     if submit_to_batch:
-        subprocess.check_call(['qsub', 'shell_jobs/job_'+config_name+'.sh'])
-        if check_dimension:
-            print('Checking the dimension of the produced kernel')
-            dim = check_eff_dim(config_name)
-            return 0, dim
-        else: 
-            return 0
+        subprocess.run(['qsub', 'shell_jobs/job_'+config_name+'.sh'])
+        return 0
     else:
         try:
             #run locally, if takes too long - will need to be submitted
             command = 'python3 classify_tracklets.py'.split()
             command.append(config_path)
-            subprocess.check_call(command, timeout=max_runtime)
-            if check_dimension:
-                print('Checking the dimension of the produced kernel')
-                dim = check_eff_dim(config_name)
-                return 0, dim
-            else: 
-                return 0
+            subprocess.run(command, timeout=max_runtime)
+            return 0
         except subprocess.TimeoutExpired:
             print('TOOK TOO LONG. TERMINATED. RUN ON BATCH (yourself).')
             print('************************************************')
@@ -43,20 +33,20 @@ def run(config_path, config_name, submit_to_batch, check_dimension: bool, ):
                 file.write(config_path+"\n")
             return 1
     
-def produce_job(config, submit_to_batch: bool, check_dimension: bool, hyperparam_opt:bool):
+def produce_job(config, submit_to_batch: bool, hyperparam_opt:bool):
     config_name = set_config_name(config, hyperparam_opt)
     config_path = produce_config(config, config_name)
     if submit_to_batch:  
         produce_shell_script(config_path, config_name)
-        return run(config_path, config_name, submit_to_batch, check_dimension)
+        return run(config_path, config_name, submit_to_batch)
     else:
-        return run(config_path, config_name, submit_to_batch, check_dimension)
+        return run(config_path, config_name, submit_to_batch)
 
 def pass_threshold(list_of_dims, threshold) -> bool:
     return([entry > threshold for entry in list_of_dims])
 
 
-def main(batch_job):
+def main(batch_job, project_kernels):
     #note (!) means filled inside the function and iterated over
     config = dict(
         load_model = False,
@@ -90,7 +80,6 @@ def main(batch_job):
     Cs = np.logspace(-3,3,7)
     
     fold_ids = range(5)
-
     for one_q_p in one_qubit_paulis:
         for two_q_p in two_qubit_paulis:
             config['paulis'] = [one_q_p, two_q_p]
@@ -101,14 +90,39 @@ def main(batch_job):
                     for entanglement in entanglements:
                         config['entanglement'] = entanglement
 
-                        #kernel type originally fidelity but changed to projected if eff. dim. turns out largE
+                        #this will be changed if projected_kernels flag is True
                         config['kernel_type'] = 'fidelity'
-                        check_dimension = True #TODO: should this flag be here or passed as parsearg
 
+                        if project_kernels:
+                            #NOTE: this can only be done after the fidelity equivalent search has been done
+
+                            
+                            #check if any of the fidelity folds passed the threshold
+                            threshold = (2**config['circuit_width'])/2
+                            fold_kernel_dims = []
+
+                            for fold_id in fold_ids:
+                                config['fold_id'] = fold_id
+                                fidelity_config_name = set_config_name(config, hyperparam_opt=True)
+                                kernel_dim = check_eff_dim(fidelity_config_name)
+                                fold_kernel_dims.append(kernel_dim)
+                            large_dim_found = any(pass_threshold(fold_kernel_dims, threshold))
+
+                            if large_dim_found:
+                                print('Some of the folds\' kernels had dimension larger than the threshold')
+                                print(f'Threshold: {threshold}')
+                                print(f'Fold kernel dimensions: {fold_kernel_dims}')
+                                print('Proceeding to produce projected kernels')
+                                config['kernel_type'] = 'projected_1rdm'
+                            else:
+                                print('All folds produced kernels passing the threshold')
+                                print(f'Threshold: {threshold}')
+                                print(f'Fold kernel dimensions: {fold_kernel_dims}')
+                                break
+                            
                         run_success = 0 #not relevant for batch jobs
 
                         #Hyperparams set, now run five folds for that setting
-                        fold_kernel_dims = []
                         for fold_id in fold_ids:
                             print(f'On fold {fold_id}')
                             config['fold_id'] = fold_id
@@ -117,32 +131,9 @@ def main(batch_job):
                             if run_success !=0:
                                 print('gon break bro')
                                 break
-
-                            if check_dimension:
-                                #for now threshold set to half of the hilbert space dimension
-                                threshold = (2**config['circuit_width'])/2
-
-                                run_success, kernel_dim =  produce_job(config, batch_job, check_dimension, config['hyperparam_opt_flag'])
-                                fold_kernel_dims.append(kernel_dim)
-                            else:
-                                run_success = produce_job(config, batch_job, check_dimension)
-                        #check if any of the folds passes accepted threshold
-                        if check_dimension:
-                            large_dim_found = any(pass_threshold(fold_kernel_dims, threshold))
-                            if large_dim_found:
-                                print('Some of the folds\' kernels had dimension larger than the threshold')
-                                print(f'Threshold: {threshold}')
-                                print(f'Fold kernel dimensions: {fold_kernel_dims}')
-                                #repeat all folds with projected kernel
-                                for fold_id in fold_ids:
-                                    print(f'On fold {fold_id} (projected)')
-                                    config['kernel_type'] = 'projected_1rdm'
-                                    produce_job(config, batch_job, check_dimension)
-                            else:
-                                print('All folds produced kernels passing the threshold')
-                                print(f'Threshold: {threshold}')
-                                print(f'Fold kernel dimensions: {fold_kernel_dims}')
-                        
+                            run_success = produce_job(config, batch_job, config['hyperparam_opt_flag'])
+                                
+                    
 if __name__ == '__main__':
     batch_flag = False #could have this True on the cluster and False locally?
-    main(batch_flag)
+    main(batch_flag, True)
