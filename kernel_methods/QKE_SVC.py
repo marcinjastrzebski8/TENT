@@ -112,6 +112,7 @@ class QKE_SVC():
     alpha = None,
     C_quant = None,
     paulis: Optional[List] = None,
+    entanglement = None,
     circuit_width = None,
     keep_kernel = False):
         if kernel_type in ('classical_keep_kernel', 'classical'):
@@ -123,7 +124,8 @@ class QKE_SVC():
             self.backend = QuantumInstance(AerSimulator(method = 'statevector'))
             self.circuit_width = circuit_width
             self.paulis = paulis
-            self.featureMap = PauliFeatureMap(circuit_width, alpha = self.alpha, paulis = self.paulis, data_map_func = self_product)
+            self.ent = entanglement
+            self.featureMap = PauliFeatureMap(circuit_width, alpha = self.alpha, paulis = self.paulis, data_map_func = self_product, entanglement = self.ent)
             if kernel_type == 'fidelity':
                 self.kernel = QuantumKernel(feature_map=self.featureMap, quantum_instance = self.backend)
             elif kernel_type == 'projected_1rdm':
