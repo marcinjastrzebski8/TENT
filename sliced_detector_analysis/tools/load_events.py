@@ -53,7 +53,7 @@ def load_events(event_files, dataset = 'edge', folder = None, sample = False) ->
     files_folder_str = database_folder_str+'/'+dataset+'_data/'+folder
     if dataset == 'initial':
         events_data = initial_data_to_dataframe(files_folder_str, event_files)
-    elif dataset in ('edge', 'triplet', 'balanced_triplet', 'io_triplet_pair', 'inner_triplet'):
+    elif dataset in ('edge', 'triplet', 'balanced_triplet', 'io_triplet_pair', 'inner_triplet', 'quintuplet'):
         if dataset == 'edge':
             column_names = ['object_coords', 'label', 'eta', 'phi', 
             'true_pt', 'layer','track_length', 'hit1_id', 'hit2_id', 'particle_num']
@@ -62,6 +62,9 @@ def load_events(event_files, dataset = 'edge', folder = None, sample = False) ->
             'particle_id', 'particle_num', 'phi', 'eta']
         elif dataset == 'io_triplet_pair':
             column_names = ['object_coords', 'label', 'phi_breaking', 'theta_breaking', 'pt_estimate', 'ip', 'pt', 'track_length', 'particle_id', 'particle_num', 'phi', 'eta']
+        elif dataset == 'quintuplet':
+            column_names = ['object_coords','label', 'phi_breaking','theta_breaking','pt_estimate', 'ip','pt','track_lengths',
+            'particle_id', 'particle_num', 'phi', 'eta', 'seed_prediction']
         files_folder_as_list = os.listdir(files_folder_str)
         files_folder_as_list.sort()
         data_files = files_folder_as_list[:event_files] #this is a list of strings

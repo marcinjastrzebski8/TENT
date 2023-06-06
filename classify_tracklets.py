@@ -58,6 +58,14 @@ def data_transform(data_in_region, method = 'global') -> None:
         max_vals = [max_rho, max_phi, max_z]
 
         object_hit_features_ready = np.divide(object_array_long, max_vals)
+    elif method == 'quint_global':
+        max_rho = 267
+        max_phi = np.pi
+        max_z = 781
+        max_vals = [max_rho, max_phi, max_z]
+
+        object_hit_features_ready = np.divide(object_array_long, max_vals)
+
     elif method == 'manual' or method == 'maxabs_mean':
         hit_feature_means = np.mean(unique_hits, axis = 0)
         object_hit_features_centred = np.subtract(object_array_long, hit_feature_means)
